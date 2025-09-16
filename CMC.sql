@@ -1,12 +1,7 @@
 
 -- VARIABLES BIND
-
-VARIABLE p_mes_proceso VARCHAR2(2);
-EXEC :p_mes_proceso := '01'; -- Mes en formato MM
-
-VARIABLE p_anno_proceso VARCHAR2(4);
-EXEC :p_anno_proceso := '2023'; -- Año en formato YYYY
-
+VARIABLE b_fecha VARCHAR2(6);
+EXEC :b_fecha := '202301';
 
 
 VARIABLE p_valor_limite_com NUMBER;
@@ -32,9 +27,11 @@ CURSOR cur_auditorias(p_id_auditor NUMBER, p_mes_proceso NUMBER, p_anno_proceso 
     AND EXTRACT(YEAR FROM fin_auditoria) = p_anno_proceso;
 
 -----ESCALARES
+v_cant_auditorias NUMBER(8);
+v_monto_auditorias NUMBER(8);
 
-v_total_monto NUMBER(10,2);
-v_total_auditorias NUMBER;
+-- variables TOTALIZADORAS
+
 v_comision_total_audit NUMBER(10,2);
 v_comision_monto_audit NUMBER(10,2);
 v_comision_prof_critica NUMBER(10,2);
@@ -43,12 +40,6 @@ v_total_comision_audit NUMBER(10,2);
 v_total_comision_empresa NUMBER(10,2);
 
 
------VARRAY
--- Varray TIPO_CONTRATO PORC_INCENTIVO
-TYPE tipo_varray_porc_inc IS VARRAY(5)
-OF NUMBER;
-
-varray_porc_inc := tipo_varray_porc_inc(0.05, 0.05, 0.10, 0.15);
 
 BEGIN
   -- TRUNCA TABLAS
@@ -56,20 +47,16 @@ BEGIN
   EXECUTE IMMEDIATE 'TRUNCATE TABLE RESUMEN_COMISIONES_AUDITORIAS_MES';
   EXECUTE IMMEDIATE 'TRUNCATE TABLE ERROR_PROCESO';
 
-
-  varray_porc_mov:= tipo_varray_porc_inc(0.05,0.05,0.10,0.15);
-
-
-
 ------PRIMER LOOP
 
 FOR reg_auditor IN cur_auditor LOOP 
 
+
+
 -- Se inicializan las variables totalizadoras en cero  
 -- variables TOTALIZADORAS
-    v_total_monto := 0;
-    v_total_auditorias := 0;
-    v_comision_total_audit := 0;
+
+    v_comision_cant_audit := 0;
     v_comision_monto_audit := 0;
     v_comision_prof_critica := 0;
     v_comision_extra := 0;
@@ -79,32 +66,51 @@ FOR reg_auditor IN cur_auditor LOOP
 -----SEGUNDO LOOP
 
 
-    FOR reg_auditorias IN cur_auditorias(
-      reg_auditor.id_auditor,
-      TO_NUMBER(:p_mes_proceso),
-      TO_NUMBER(:p_anno_proceso)
+    FOR reg_auditorias IN cur_auditorias(reg_auditor.id_auditor, TO_NUMBER(:p_mes_proceso), TO_NUMBER(:p_anno_proceso)
     ) LOOP
 
     
-
-
 --------CALCULOS
 
------CANTIDAD DE AUDITORIAS
+----CALCULO POR CANTIDAD DE AUDITORIAS
+v_comision_cant_audit := calcular_comision_cant_auditorias(
+    reg_auditor.id_auditor,
+    reg_auditor.sueldo,
+    :b_fecha
+);
 
-----MONTO POR AUDITORIAS
+----CALCULO POR MONTO DE AUDITORIAS
+v_comision_monto_audit := calcular_comision_monto_auditado(
+    reg_auditor.id_auditor,
+    :b_fecha
+);
 
 ----CALCULO POR PROFESION CRITICA
 
------MONTO EXTRA
+v_comision_prof_critica:= calcular_comision_prof_crit(
+    reg_auditor.id_auditor,
+    reg_auditor.sueldo,
+    reg_auditor.cod_profesion,
+    :b_fecha
+);
 
------TOTAL
+-----CALCULO POR MONTO EXTRA
+
+v_comision_extra:= calcular_comision_extra(
+    reg_auditor.sueldo,
+    reg_auditor.cod_tpcontrato
+);
+
+-----TOTAL DE COMISIONES
+
+v_total_comision_audit := v_comision_cant_audit + v_comision_monto_audit + v_comision_prof_critica + v_comision_extra;
+
+
 
 -----TOTAL EMPRESA
   
 
     END LOOP;
-
 
  -- INSERTAR DATOS EN LA TABLA DE DETALLE
 
