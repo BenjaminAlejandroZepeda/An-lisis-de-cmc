@@ -1,4 +1,4 @@
--- VARIABLES BIND
+-----VARIABLES BIND
 VARIABLE b_fecha VARCHAR2(6);
 EXEC :b_fecha := '202301';
 
@@ -6,12 +6,12 @@ VARIABLE p_valor_limite_com NUMBER;
 EXEC :p_valor_limite_com := 500000;
 
 DECLARE 
-    -- Variables para mes y año
+----- Variables para mes y aï¿½o
     v_mes_proceso  NUMBER(2);
     v_anno_proceso NUMBER(4);
     v_correlativo  NUMBER := 0;
 
-    -- Cursor para auditores con información completa
+-----CURSOR SIN PARAMETROS
     CURSOR cur_auditor IS
     SELECT
         a.id_auditor,
@@ -26,11 +26,9 @@ DECLARE
         auditor a
         JOIN profesion p ON a.cod_profesion = p.cod_profesion;
 
-    -- Cursor para empresas auditadas por un auditor
-    CURSOR cur_empresas (
-        p_id_auditor    NUMBER,
-        p_fecha_proceso VARCHAR2
-    ) IS
+
+-----CURSOR CON PARAMETROS
+    CURSOR cur_empresas (p_id_auditor NUMBER,p_fecha_proceso VARCHAR2) IS
     SELECT
         cod_empresa,
         SUM(monto_auditoria) AS monto_empresa
@@ -42,25 +40,35 @@ DECLARE
     GROUP BY
         cod_empresa;
 
-    -- Variables para comisiones
-    v_comision_cant_audit    NUMBER(12, 2);
-    v_comision_monto_audit   NUMBER(12, 2);
-    v_comision_prof_critica  NUMBER(12, 2);
-    v_comision_extra         NUMBER(12, 2);
-    v_total_comision_audit   NUMBER(12, 2);
-    v_total_comision_empresa NUMBER(12, 2);
-    v_total_auditor          NUMBER(14, 2);
+-----Variables Escalares
+    v_comision_cant_audit    NUMBER(10, 2);
+    v_comision_monto_audit   NUMBER(10, 2);
+    v_comision_prof_critica  NUMBER(10, 2);
+    v_comision_extra         NUMBER(10, 2);
+    v_total_comision_audit   NUMBER(10, 2);
+    v_total_comision_empresa NUMBER(10, 2);
+    v_total_auditor          NUMBER(10, 2);
+    
+    
+-----VARRAY
+      TYPE tipo_varray_porc_inc IS VARRAY(4) OF NUMBER(5,2);
+        varray_porc_inc tipo_varray_porc_inc;
+    
+    
 BEGIN
-    -- Extraer mes y año de :b_fecha
-    v_anno_proceso := TO_NUMBER(SUBSTR(:b_fecha, 1, 4));
-    v_mes_proceso  := TO_NUMBER(SUBSTR(:b_fecha, -2));
-
-    -- Truncar tablas
+-- Truncar tablas
     EXECUTE IMMEDIATE 'TRUNCATE TABLE DETALLE_COMISIONES_AUDITORIAS_MES';
     EXECUTE IMMEDIATE 'TRUNCATE TABLE RESUMEN_COMISIONES_AUDITORIAS_MES';
     EXECUTE IMMEDIATE 'TRUNCATE TABLE ERROR_PROCESO';
+    EXECUTE IMMEDIATE 'DROP SEQUENCE SQ_ERROR';
+    EXECUTE IMMEDIATE 'CREATE SEQUENCE SQ_ERROR';
+-- Extraer mes y aï¿½o de :b_fecha
+    v_anno_proceso := TO_NUMBER(SUBSTR(:b_fecha, 1, 4));
+    v_mes_proceso  := TO_NUMBER(SUBSTR(:b_fecha, -2));
+    
+    varray_porc_inc := tipo_varray_porc_inc(15.00, 10.00, 5.00, 5.00);
 
-    -- Bucle por cada auditor
+-- Primer LOOP
     FOR reg_auditor IN cur_auditor LOOP
         -- Inicializar variables
         v_comision_cant_audit    := 0;
@@ -71,59 +79,27 @@ BEGIN
         v_total_comision_empresa := 0;
         v_total_auditor          := 0;
 
-        -- Comisiones (las que son por auditor completo)
-        v_comision_monto_audit  := calcular_comision_monto_auditado(reg_auditor.id_auditor, :b_fecha);
-        v_comision_prof_critica := calcular_comision_prof_crit(reg_auditor.sueldo, reg_auditor.nivel_criticidad);
-        v_comision_extra        := calcular_comision_extra(reg_auditor.sueldo, reg_auditor.cod_tpcontrato);
+-- Segundo LOOP
+        FOR reg_emp IN cur_empresas(reg_auditor.id_auditor, :b_fecha) LOOP
+-----CANTIDAD DE AUDITORIAS            
 
-        -- Calcular el monto total auditado por el auditor en el mes
-        BEGIN
-            SELECT NVL(SUM(monto_auditoria), 0)
-            INTO v_total_auditor
-            FROM auditoria
-            WHERE id_auditor = reg_auditor.id_auditor
-              AND TO_CHAR(fin_auditoria, 'YYYYMM') = :b_fecha;
-        EXCEPTION
-            WHEN NO_DATA_FOUND THEN
-                v_total_auditor := 0;
-        END;
 
-        -- Si no hay monto total, registrar error
-        IF v_total_auditor = 0 THEN
-            v_correlativo := v_correlativo + 1;
-            INSERT INTO error_proceso (
-                CORRELATIVO, SENTENCIA_ERROR, MENSAJE_ERROR
-            ) VALUES (
-                v_correlativo, 'CALCULO_TOTAL_EMPRESA',
-                'No se pudo calcular Total Empresa para auditor ' || reg_auditor.id_auditor
-            );
-        ELSE
-            -- Bucle por cada empresa auditada por el auditor en el mes
-            FOR reg_emp IN cur_empresas(reg_auditor.id_auditor, :b_fecha) LOOP
-                -- Comisión por cantidad de auditorías (por empresa)
-                v_comision_cant_audit := calcular_comision_cant_auditorias(
-                    reg_auditor.id_auditor,
-                    reg_emp.cod_empresa,
-                    reg_auditor.sueldo,
-                    :b_fecha
-                );
 
-                -- Total de comisiones por auditor (base para prorrateo)
-                v_total_comision_audit := v_comision_cant_audit
-                                        + v_comision_monto_audit
-                                        + v_comision_prof_critica
-                                        + v_comision_extra;
+----MONTO POR AUDITORIAS
 
-                -- Aplicar límite
-                IF v_total_comision_audit > :p_valor_limite_com THEN
-                    v_total_comision_audit := :p_valor_limite_com;
-                END IF;
+----CALCULO POR PROFESION CRITICA
 
-                -- Prorrateo por empresa según monto auditado
-                v_total_comision_empresa := v_total_comision_audit
-                                            * (reg_emp.monto_empresa / v_total_auditor);
+-----MONTO EXTRA
 
-                -- Insertar en detalle
+-----TOTAL
+
+v_total_comision_audit := v_comision_cant_audit+ v_comision_monto_audit+ v_comision_prof_critica+ v_comision_extra;
+
+-----TOTAL EMPRESA
+
+
+
+-- Insertar en la tabla detalle
                 INSERT INTO DETALLE_COMISIONES_AUDITORIAS_MES (
                     MES_PROCESO,
                     ANNO_PROCESO,
@@ -151,11 +127,14 @@ BEGIN
                     v_total_comision_empresa,
                     reg_emp.cod_empresa
                 );
-            END LOOP; -- reg_emp
-        END IF;
-    END LOOP; -- reg_auditor
-
-    -- Resumen por profesión (usar función con cod_empresa = NULL para total por auditor)
+                
+-----CALCULO DE LAS VARIABLES TOTALIZADORAS                  
+                
+                
+                
+                
+        END LOOP;
+    -- Resumen por profesiï¿½n (usar funciï¿½n con cod_empresa = NULL para total por auditor)
     INSERT INTO RESUMEN_COMISIONES_AUDITORIAS_MES (
         MES_PROCESO,
         ANNO_PROCESO,
@@ -187,5 +166,8 @@ BEGIN
             AND TO_CHAR(au.fin_auditoria, 'YYYYMM') = :b_fecha
     GROUP BY
         p.nombre_profesion;
-END;
+        
+END LOOP;
+COMMIT;
+END;  
 /
