@@ -1,7 +1,14 @@
 --IMPORTANTE: EJECUTAR CADA BLOQUE POR SEPARADO
 --Recomiendo que la fecha de proceso en la variable bind encapsule mes y año bajo un formato 'YYYYMM'
 
---REGLA DE NEGOCIO 1.1 [4-27]
+DROP FUNCTION calcular_comision_cant_auditorias;
+DROP FUNCTION calcular_comision_monto_auditado;
+DROP FUNCTION calcular_comision_prof_crit;
+DROP FUNCTION calcular_comision_extra;
+DROP FUNCTION calcular_comision_total;
+
+--REGLA DE NEGOCIO 1.1 [10-33]
+
 CREATE FUNCTION calcular_comision_cant_auditorias(id_aud IN NUMBER, a_sueldo IN NUMBER, fecha_proceso IN VARCHAR2)
 RETURN NUMBER
 IS
@@ -27,7 +34,8 @@ EXCEPTION
         RETURN 0;  
 END calcular_comision_cant_auditorias;
 
---REGLA DE NEGOCIO 1.2 [30-53]
+
+--REGLA DE NEGOCIO 1.2 [36-59]
 CREATE FUNCTION calcular_comision_monto_auditado(id_aud IN NUMBER, fecha_proceso IN VARCHAR2)
 RETURN NUMBER
 IS
@@ -53,15 +61,19 @@ EXCEPTION
         RETURN 0;
 END calcular_comision_monto_auditado;
 
---REGLA DE NEGOCIO 1.3 [56-71]
-CREATE FUNCTION calcular_comision_prof_crit(id_aud IN NUMBER, a_sueldo IN NUMBER, cod_profesion IN NUMBER, fecha_proceso IN VARCHAR2)
+
+--REGLA DE NEGOCIO 1.3 [62-77]
+CREATE FUNCTION calcular_comision_prof_crit(a_sueldo IN NUMBER, cod_profesion IN NUMBER, fecha_proceso IN VARCHAR2)
+
 RETURN NUMBER
 IS
     v_comision      NUMBER(10,2);
 BEGIN
     IF(cod_profesion>=3)THEN
         v_comision:=a_sueldo*0.05;
-        RETURN v_comision;
+
+        RETURN ROUND(v_comision,2);
+
     ELSE
         v_comision:=0;
         RETURN v_comision;
@@ -70,6 +82,7 @@ EXCEPTION
     WHEN NO_DATA_FOUND THEN
         RETURN 0;
 END calcular_comision_prof_crit;
+
 
 --REGLA DE NEGOCIO 1.4 [74-91]
 CREATE FUNCTION calcular_comision_extra (
@@ -94,3 +107,4 @@ EXCEPTION
   WHEN OTHERS THEN
     RETURN 0;
 END calcular_comision_extra;
+
