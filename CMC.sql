@@ -1,10 +1,7 @@
 
 -- VARIABLES BIND
-
-
 VARIABLE b_fecha VARCHAR2(6);
 EXEC :b_fecha := '202301';
-
 
 
 VARIABLE p_valor_limite_com NUMBER;
@@ -43,25 +40,12 @@ v_total_comision_audit NUMBER(10,2);
 v_total_comision_empresa NUMBER(10,2);
 
 
------VARRAY
--- Varray TIPO_CONTRATO PORC_INCENTIVO
-TYPE tipo_varray_porc_inc IS VARRAY(5)
-OF NUMBER;
-
-
-varray_porc_inc tipo_varray_porc_inc;
-
 
 BEGIN
   -- TRUNCA TABLAS
   EXECUTE IMMEDIATE 'TRUNCATE TABLE DETALLE_COMISIONES_AUDITORIAS_MES';
   EXECUTE IMMEDIATE 'TRUNCATE TABLE RESUMEN_COMISIONES_AUDITORIAS_MES';
   EXECUTE IMMEDIATE 'TRUNCATE TABLE ERROR_PROCESO';
-
-
-  varray_porc_inc:= tipo_varray_porc_inc(0.05,0.05,0.10,0.15);
-
-
 
 ------PRIMER LOOP
 
@@ -71,8 +55,8 @@ FOR reg_auditor IN cur_auditor LOOP
 
 -- Se inicializan las variables totalizadoras en cero  
 -- variables TOTALIZADORAS
-    v_total_monto := 0;
-    v_comision_total_audit := 0;
+
+    v_comision_cant_audit := 0;
     v_comision_monto_audit := 0;
     v_comision_prof_critica := 0;
     v_comision_extra := 0;
@@ -86,23 +70,42 @@ FOR reg_auditor IN cur_auditor LOOP
     ) LOOP
 
     
-
-
 --------CALCULOS
 
-v_comision_total_audit := calcular_comision_cant_auditorias(
-  reg_auditor.id_auditor,
-  reg_auditor.sueldo,
-  :b_fecha
+----CALCULO POR CANTIDAD DE AUDITORIAS
+v_comision_cant_audit := calcular_comision_cant_auditorias(
+    reg_auditor.id_auditor,
+    reg_auditor.sueldo,
+    :b_fecha
 );
 
-    
+----CALCULO POR MONTO DE AUDITORIAS
+v_comision_monto_audit := calcular_comision_monto_auditado(
+    reg_auditor.id_auditor,
+    :b_fecha
+);
 
 ----CALCULO POR PROFESION CRITICA
 
------MONTO EXTRA
+v_comision_prof_critica:= calcular_comision_prof_crit(
+    reg_auditor.id_auditor,
+    reg_auditor.sueldo,
+    reg_auditor.cod_profesion,
+    :b_fecha
+);
 
------TOTAL
+-----CALCULO POR MONTO EXTRA
+
+v_comision_extra:= calcular_comision_extra(
+    reg_auditor.sueldo,
+    reg_auditor.cod_tpcontrato
+);
+
+-----TOTAL DE COMISIONES
+
+v_total_comision_audit := v_comision_cant_audit + v_comision_monto_audit + v_comision_prof_critica + v_comision_extra;
+
+
 
 -----TOTAL EMPRESA
   
