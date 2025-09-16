@@ -72,21 +72,25 @@ EXCEPTION
 END calcular_comision_prof_crit;
 
 --REGLA DE NEGOCIO 1.4 [74-91]
-CREATE FUNCTION calcular_comision_extra(a_sueldo IN NUMBER, a_tipo_contrato IN NUMBER)
-RETURN NUMBER
-IS
-    v_porc_incentivo    NUMBER(10,2);
-    v_comision          NUMBER(10,2);
+CREATE FUNCTION calcular_comision_extra (
+  a_sueldo IN NUMBER,
+  a_tipo_contrato IN NUMBER
+) RETURN NUMBER IS
+
+  TYPE tipo_varray_porc_inc IS VARRAY(4) OF NUMBER(5,2);
+  varray_porc_inc tipo_varray_porc_inc := tipo_varray_porc_inc(15.00, 10.00, 5.00, 5.00);
+  v_comision NUMBER(10,2);
 BEGIN
-    SELECT
-        tp.porc_incentivo
-    INTO v_porc_incentivo
-    FROM tipo_contrato tp
-    WHERE a_tipo_contrato=tp.cod_tpcontrato;
-    
-    v_comision:= (a_sueldo * v_porc_incentivo)/100;
-    RETURN v_comision;
+
+  -- Validar que el tipo de contrato esté dentro del rango válido 1-4
+  IF a_tipo_contrato BETWEEN 1 AND 4 THEN
+    v_comision := a_sueldo * (varray_porc_inc(a_tipo_contrato) / 100);
+  ELSE
+    v_comision := 0;
+  END IF;
+  RETURN ROUND(v_comision, 2);
+
 EXCEPTION
-    WHEN NO_DATA_FOUND THEN
-        RETURN 0;
+  WHEN OTHERS THEN
+    RETURN 0;
 END calcular_comision_extra;
