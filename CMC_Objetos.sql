@@ -1,0 +1,23 @@
+
+-- ESPECIFICACION DEL PACKAGE
+CREATE OR REPLACE PACKAGE PKG_COMISIONES_AUDITORIA IS
+
+  -- Fecha de proceso (AAAAMM)
+  v_fecha_proceso CONSTANT VARCHAR2(6) := '202301';
+  -- Valor límite máximo de comisión
+  v_valor_limite_comision CONSTANT NUMBER := 500000;
+
+  -- Funciones 
+
+
+END PKG_COMISIONES_AUDITORIA;
+/
+
+
+-- CUERPO DEL PACKAGE
+CREATE OR REPLACE PACKAGE BODY PKG_COMISIONES_AUDITORIA IS
+
+  -- Procedimiento Principal
+
+END PKG_COMISIONES_AUDITORIA;
+/
